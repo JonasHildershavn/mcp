@@ -1,0 +1,29 @@
+{
+  "name": "mcp-educational-demo",
+  "version": "1.0.0",
+  "description": "Educational project demonstrating Model Context Protocol with multiple servers and an interactive client",
+  "scripts": {
+    "servers": "concurrently \"npm run server:calculator\" \"npm run server:notes\" \"npm run server:templates\" \"npm run server:weather\"",
+    "server:calculator": "cd servers/calculator && npm start",
+    "server:notes": "cd servers/notes && npm start",
+    "server:templates": "cd servers/templates && npm start",
+    "server:weather": "cd servers/weather && npm start",
+    "client": "cd client && npm start",
+    "dev": "concurrently \"npm run servers\" \"npm run client\"",
+    "build": "npm run build:servers && npm run build:client",
+    "build:servers": "cd servers/calculator && npm run build && cd ../notes && npm run build && cd ../templates && npm run build && cd ../weather && npm run build",
+    "build:client": "cd client && npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "educational",
+    "demo",
+    "tutorial"
+  ],
+  "author": "Jonas Hildershavn",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
