@@ -11,12 +11,23 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 /**
- * Notes MCP Server
+ * Notes MCP Server - Educational Demo with Practical Features
  *
  * This server demonstrates MCP RESOURCES by exposing notes as accessible data.
  * Resources allow clients to discover and read structured data from the server.
  *
- * It also provides tools for CRUD operations on notes.
+ * Educational Features:
+ * - CRUD operations (Create, Read, Update, Delete)
+ * - Search and filtering capabilities
+ * - Tag-based organization
+ * - Resource exposure via MCP
+ * - Practical data management patterns
+ *
+ * This server shows how MCP can be used for real applications like:
+ * - Note-taking apps
+ * - Document management systems
+ * - Knowledge bases
+ * - Personal information managers
  */
 
 interface Note {
@@ -127,6 +138,33 @@ const TOOLS: Tool[] = [
         },
       },
       required: ["query"],
+    },
+  },
+  {
+    name: "list_all_tags",
+    description: "List all unique tags used across all notes",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "get_notes_by_tag",
+    description: "Get all notes that have a specific tag",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tag: { type: "string", description: "Tag to filter by" },
+      },
+      required: ["tag"],
+    },
+  },
+  {
+    name: "get_note_stats",
+    description: "Get statistics about your notes collection",
+    inputSchema: {
+      type: "object",
+      properties: {},
     },
   },
 ];
@@ -279,6 +317,84 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: "text",
               text: JSON.stringify({ results, count: results.length }, null, 2),
+            },
+          ],
+        };
+      }
+
+      case "list_all_tags": {
+        const allTags = new Set<string>();
+        notes.forEach((note) => {
+          note.tags.forEach((tag) => allTags.add(tag));
+        });
+
+        const tagStats = Array.from(allTags).map((tag) => {
+          const count = Array.from(notes.values()).filter((note) =>
+            note.tags.includes(tag)
+          ).length;
+          return { tag, count };
+        });
+
+        tagStats.sort((a, b) => b.count - a.count);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                tags: tagStats,
+                totalUniqueTags: tagStats.length,
+              }, null, 2),
+            },
+          ],
+        };
+      }
+
+      case "get_notes_by_tag": {
+        const tag = args.tag as string;
+        const matchingNotes = Array.from(notes.values()).filter((note) =>
+          note.tags.includes(tag)
+        );
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                tag,
+                notes: matchingNotes,
+                count: matchingNotes.length,
+              }, null, 2),
+            },
+          ],
+        };
+      }
+
+      case "get_note_stats": {
+        const allNotes = Array.from(notes.values());
+        const totalTags = new Set<string>();
+        let totalWords = 0;
+
+        allNotes.forEach((note) => {
+          note.tags.forEach((tag) => totalTags.add(tag));
+          totalWords += note.content.split(/\s+/).length;
+        });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                statistics: {
+                  totalNotes: allNotes.length,
+                  totalUniqueTags: totalTags.size,
+                  totalWords,
+                  averageWordsPerNote: allNotes.length > 0
+                    ? Math.round(totalWords / allNotes.length)
+                    : 0,
+                  mostCommonTags: Array.from(totalTags).slice(0, 5),
+                },
+              }, null, 2),
             },
           ],
         };
