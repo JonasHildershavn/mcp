@@ -152,7 +152,9 @@ const server = new Server(
   },
   {
     capabilities: {
-      tools: {},
+      tools: {
+        listChanged: true,  // Server will notify when tool list changes
+      },
     },
   }
 );
@@ -167,6 +169,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 // Handle tool execution requests
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+
+  if (!args) {
+    throw new Error("Missing arguments");
+  }
 
   try {
     let result: number;

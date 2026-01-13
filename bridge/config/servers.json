@@ -1,0 +1,34 @@
+{
+  "calculator": {
+    "name": "calculator-server",
+    "displayName": "Calculator Server",
+    "command": "node",
+    "args": ["servers/calculator/dist/index.js"],
+    "cwd": "/Users/jonashildershavn/Repositories/MCP/mcp",
+    "capabilities": ["tools"]
+  },
+  "notes": {
+    "name": "notes-server",
+    "displayName": "Notes Server",
+    "command": "node",
+    "args": ["servers/notes/dist/index.js"],
+    "cwd": "/Users/jonashildershavn/Repositories/MCP/mcp",
+    "capabilities": ["tools", "resources"]
+  },
+  "templates": {
+    "name": "templates-server",
+    "displayName": "Templates Server",
+    "command": "node",
+    "args": ["servers/templates/dist/index.js"],
+    "cwd": "/Users/jonashildershavn/Repositories/MCP/mcp",
+    "capabilities": ["prompts"]
+  },
+  "weather": {
+    "name": "weather-server",
+    "displayName": "Weather Server",
+    "command": "node",
+    "args": ["servers/weather/dist/index.js"],
+    "cwd": "/Users/jonashildershavn/Repositories/MCP/mcp",
+    "capabilities": ["tools", "resources", "prompts"]
+  }
+}

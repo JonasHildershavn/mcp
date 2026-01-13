@@ -139,8 +139,13 @@ const server = new Server(
   },
   {
     capabilities: {
-      resources: {},
-      tools: {},
+      tools: {
+        listChanged: true,  // Server will notify when tool list changes
+      },
+      resources: {
+        listChanged: true,  // Server will notify when resource list changes
+        subscribe: true,    // Server supports resource subscriptions
+      },
     },
   }
 );
@@ -186,6 +191,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 // Handle tool execution
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
+
+  if (!args) {
+    throw new Error("Missing arguments");
+  }
 
   try {
     switch (name) {

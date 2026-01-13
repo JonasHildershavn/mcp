@@ -478,7 +478,9 @@ const server = new Server(
   },
   {
     capabilities: {
-      prompts: {},
+      prompts: {
+        listChanged: true,  // Server will notify when prompt list changes
+      },
     },
   }
 );

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:news.ycombinator.com)",
+      "WebFetch(domain:www.anthropic.com)",
+      "WebFetch(domain:openai.com)",
+      "WebFetch(domain:ai.google)"
+    ]
+  }
+}
