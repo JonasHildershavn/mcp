@@ -15,19 +15,19 @@
 
 import { useState } from 'react';
 import { getAIService, AIResponse } from '../../services/AIService';
-import { Prompt, PromptMessage } from '../../types/mcp';
+import { Prompt } from '../../types/mcp';
 
 interface AIPromptProcessorProps {
   serverName: string;
   prompt: Prompt;
-  promptMessages: PromptMessage[];
+  promptText: string;
   onClose: () => void;
 }
 
 export function AIPromptProcessor({
   serverName,
   prompt,
-  promptMessages,
+  promptText,
   onClose
 }: AIPromptProcessorProps) {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -45,11 +45,6 @@ export function AIPromptProcessor({
         setError('AI service not configured. Please set your Anthropic API key in the .env file.');
         return;
       }
-
-      // Combine all prompt messages into a single text
-      const promptText = promptMessages
-        .map(msg => msg.content.text)
-        .join('\n\n');
 
       const response = await aiService.processMCPPrompt(promptText, {
         systemPrompt: `You are processing a prompt from the "${serverName}" MCP server. ` +
@@ -93,11 +88,11 @@ export function AIPromptProcessor({
           {/* Prompt Preview */}
           <div>
             <h3 className="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
-              <span>📝</span> Prompt from Server
+              <span>📝</span> Prompt to Process
             </h3>
             <div className="bg-slate-900 rounded-lg p-4 border border-slate-700">
               <pre className="text-sm text-slate-300 whitespace-pre-wrap font-mono">
-                {promptMessages.map(msg => msg.content.text).join('\n\n')}
+                {promptText}
               </pre>
             </div>
           </div>
@@ -196,19 +191,19 @@ export function AIPromptProcessor({
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <div className="text-2xl font-bold text-blue-400">
-                        {aiResponse.usage.input_tokens.toLocaleString()}
+                        {aiResponse.usage.inputTokens.toLocaleString()}
                       </div>
                       <div className="text-xs text-slate-400 mt-1">Input Tokens</div>
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-green-400">
-                        {aiResponse.usage.output_tokens.toLocaleString()}
+                        {aiResponse.usage.outputTokens.toLocaleString()}
                       </div>
                       <div className="text-xs text-slate-400 mt-1">Output Tokens</div>
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-purple-400">
-                        {(aiResponse.usage.input_tokens + aiResponse.usage.output_tokens).toLocaleString()}
+                        {aiResponse.usage.totalTokens.toLocaleString()}
                       </div>
                       <div className="text-xs text-slate-400 mt-1">Total Tokens</div>
                     </div>

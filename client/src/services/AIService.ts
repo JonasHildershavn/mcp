@@ -1,43 +1,45 @@
 /**
- * AI Service - Anthropic Claude Integration
+ * AI Service - Backend AI Integration
  *
- * This service provides AI capabilities to the MCP client, demonstrating:
- * - How clients can have their own capabilities
- * - Integration with LLM APIs
- * - Processing MCP prompts with AI
+ * This service communicates with the separate AI Processing Service backend.
+ * Follows enterprise best practices:
+ * - API calls made from backend (avoids CORS, secures API keys)
+ * - Clean separation between client and AI processing
+ * - Service can be scaled/deployed independently
  *
  * Educational Notes:
- * - The client acts as both an MCP client (consuming server capabilities)
- *   and as a capable system (providing AI processing)
- * - This demonstrates the flexibility of MCP architecture
+ * - Demonstrates proper microservices architecture
+ * - Shows how to integrate AI without exposing secrets in browser
+ * - Client delegates AI processing to specialized service
  */
-
-export interface AIMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
 
 export interface AIResponse {
   content: string;
   model: string;
   usage?: {
-    input_tokens: number;
-    output_tokens: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
   };
 }
 
 export class AIService {
-  private apiKey: string;
-  private baseUrl = 'https://api.anthropic.com/v1';
-  private model = 'claude-3-5-sonnet-20241022';
-  private maxTokens = 4096;
+  private aiServiceUrl = 'http://localhost:4001/api/ai';
+  private configured: boolean | null = null;
 
-  constructor(apiKey?: string) {
-    this.apiKey = apiKey || import.meta.env.VITE_ANTHROPIC_API_KEY || '';
+  constructor() {
+    // Check if AI service is available
+    this.checkConfiguration();
+  }
 
-    if (!this.apiKey) {
-      console.warn('⚠️ No Anthropic API key configured. AI features will be unavailable.');
-      console.warn('   Set VITE_ANTHROPIC_API_KEY in your .env file to enable AI capabilities.');
+  private async checkConfiguration(): Promise<void> {
+    try {
+      const response = await fetch('http://localhost:4001/health');
+      const data = await response.json();
+      this.configured = data.configured;
+    } catch (error) {
+      this.configured = false;
+      console.warn('⚠️ AI Processing Service not available or not configured.');
     }
   }
 
@@ -45,70 +47,18 @@ export class AIService {
    * Check if AI service is configured and ready
    */
   isConfigured(): boolean {
-    return !!this.apiKey && this.apiKey !== 'your_api_key_here';
+    // Return true optimistically if we haven't checked yet
+    // The actual API call will fail gracefully if not configured
+    return this.configured !== false;
   }
 
   /**
-   * Process a prompt with Claude AI
-   *
-   * @param messages - Conversation messages
-   * @param systemPrompt - Optional system prompt
-   * @returns AI response
-   */
-  async processPrompt(
-    messages: AIMessage[],
-    systemPrompt?: string
-  ): Promise<AIResponse> {
-    if (!this.isConfigured()) {
-      throw new Error('AI Service not configured. Please set your Anthropic API key.');
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: this.model,
-          max_tokens: this.maxTokens,
-          messages: messages.map(msg => ({
-            role: msg.role,
-            content: msg.content
-          })),
-          ...(systemPrompt && { system: systemPrompt })
-        })
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || 'AI request failed');
-      }
-
-      const data = await response.json();
-
-      return {
-        content: data.content[0].text,
-        model: data.model,
-        usage: data.usage
-      };
-    } catch (error) {
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Failed to process AI request');
-    }
-  }
-
-  /**
-   * Process an MCP prompt with AI
+   * Process an MCP prompt with AI via backend service
    *
    * This demonstrates how to use MCP prompts with an AI service:
    * 1. Server provides a prompt template
    * 2. Client fills in arguments
-   * 3. AI processes the prompt
+   * 3. Backend AI service processes the prompt
    * 4. Result is returned to user
    *
    * @param promptText - The prompt text from MCP server
@@ -119,91 +69,40 @@ export class AIService {
     promptText: string,
     context?: Record<string, any>
   ): Promise<AIResponse> {
-    const messages: AIMessage[] = [
-      {
-        role: 'user',
-        content: promptText
+    try {
+      const systemPrompt = context?.systemPrompt ||
+        'You are a helpful AI assistant processing prompts from an MCP (Model Context Protocol) server. ' +
+        'Provide clear, educational, and accurate responses.';
+
+      const response = await fetch(`${this.aiServiceUrl}/process`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt: promptText,
+          systemPrompt,
+          maxTokens: context?.maxTokens || 4096
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || error.error || 'AI processing failed');
       }
-    ];
 
-    const systemPrompt = context?.systemPrompt ||
-      'You are a helpful AI assistant processing prompts from an MCP (Model Context Protocol) server. ' +
-      'Provide clear, educational, and accurate responses.';
+      const data = await response.json();
 
-    return this.processPrompt(messages, systemPrompt);
-  }
-
-  /**
-   * Explain a tool result in educational terms
-   *
-   * @param toolName - Name of the tool
-   * @param toolArgs - Arguments passed to tool
-   * @param toolResult - Result from tool execution
-   * @returns Educational explanation
-   */
-  async explainToolResult(
-    toolName: string,
-    toolArgs: any,
-    toolResult: string
-  ): Promise<string> {
-    if (!this.isConfigured()) {
-      return 'AI explanations unavailable. Configure your Anthropic API key to enable this feature.';
-    }
-
-    try {
-      const response = await this.processPrompt([
-        {
-          role: 'user',
-          content: `Explain this MCP tool execution in simple, educational terms:
-
-Tool: ${toolName}
-Arguments: ${JSON.stringify(toolArgs, null, 2)}
-Result: ${toolResult}
-
-Provide a brief (2-3 sentences) explanation of what happened and why it's useful.`
-        }
-      ], 'You are an educational AI assistant helping users understand MCP (Model Context Protocol) concepts.');
-
-      return response.content;
+      return {
+        content: data.response,
+        model: data.model,
+        usage: data.usage
+      };
     } catch (error) {
-      console.error('Error generating explanation:', error);
-      return 'Unable to generate explanation at this time.';
-    }
-  }
-
-  /**
-   * Analyze resource content
-   *
-   * @param resourceUri - URI of the resource
-   * @param resourceContent - Content of the resource
-   * @returns AI analysis
-   */
-  async analyzeResource(
-    resourceUri: string,
-    resourceContent: string
-  ): Promise<string> {
-    if (!this.isConfigured()) {
-      return 'AI analysis unavailable. Configure your Anthropic API key to enable this feature.';
-    }
-
-    try {
-      const response = await this.processPrompt([
-        {
-          role: 'user',
-          content: `Analyze this resource from an MCP server:
-
-URI: ${resourceUri}
-Content:
-${resourceContent}
-
-Provide a helpful summary and any insights about this resource.`
-        }
-      ]);
-
-      return response.content;
-    } catch (error) {
-      console.error('Error analyzing resource:', error);
-      return 'Unable to analyze resource at this time.';
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Failed to process AI request');
     }
   }
 
@@ -217,7 +116,7 @@ Provide a helpful summary and any insights about this resource.`
     return {
       ai: {
         enabled: this.isConfigured(),
-        models: this.isConfigured() ? ['claude-3-5-sonnet-20241022'] : [],
+        models: this.isConfigured() ? ['claude-sonnet-4'] : [],
         capabilities: this.isConfigured() ? [
           'prompt_processing',
           'content_analysis',
