@@ -8,10 +8,14 @@
     "server:notes": "cd servers/notes && npm start",
     "server:templates": "cd servers/templates && npm start",
     "server:weather": "cd servers/weather && npm start",
+    "bridge": "cd bridge && npm start",
+    "ai-service": "cd ai-service && npm start",
     "client": "cd client && npm start",
-    "dev": "concurrently \"npm run servers\" \"npm run client\"",
-    "build": "npm run build:servers && npm run build:client",
+    "dev": "concurrently \"npm run bridge\" \"npm run ai-service\" \"npm run servers\" \"npm run client\"",
+    "build": "npm run build:servers && npm run build:client && npm run build:bridge && npm run build:ai",
     "build:servers": "cd servers/calculator && npm run build && cd ../notes && npm run build && cd ../templates && npm run build && cd ../weather && npm run build",
+    "build:bridge": "cd bridge && npm run build",
+    "build:ai": "cd ai-service && npm run build",
     "build:client": "cd client && npm run build"
   },
   "keywords": [

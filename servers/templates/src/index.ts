@@ -19,455 +19,213 @@ import {
 const PROMPTS: Prompt[] = [
   {
     name: "code_review",
-    description: "Generate a comprehensive code review template",
+    description: "Get a comprehensive code review with suggestions for improvements",
     arguments: [
       {
-        name: "language",
-        description: "Programming language (e.g., TypeScript, Python, Java)",
+        name: "code",
+        description: "The code to review",
         required: true,
       },
       {
         name: "focus_areas",
-        description: "Specific areas to focus on (e.g., security, performance, style)",
+        description: "Specific areas to focus on (e.g., security, performance, readability)",
         required: false,
       },
     ],
   },
   {
-    name: "bug_report",
-    description: "Create a structured bug report template",
+    name: "explain_code",
+    description: "Get a clear explanation of what code does and how it works",
     arguments: [
       {
-        name: "severity",
-        description: "Bug severity level (low, medium, high, critical)",
+        name: "code",
+        description: "The code to explain",
+        required: true,
+      },
+    ],
+  },
+  {
+    name: "find_bugs",
+    description: "Analyze code for potential bugs, edge cases, and issues",
+    arguments: [
+      {
+        name: "code",
+        description: "The code to analyze",
+        required: true,
+      },
+    ],
+  },
+  {
+    name: "improve_code",
+    description: "Get suggestions to improve code quality, performance, and maintainability",
+    arguments: [
+      {
+        name: "code",
+        description: "The code to improve",
         required: true,
       },
       {
-        name: "component",
-        description: "Affected component or module",
+        name: "goals",
+        description: "What to optimize for (e.g., performance, readability, simplicity)",
         required: false,
       },
     ],
   },
   {
-    name: "documentation",
-    description: "Generate documentation template for code",
+    name: "generate_tests",
+    description: "Generate comprehensive test cases for code",
     arguments: [
       {
-        name: "doc_type",
-        description: "Type of documentation (API, tutorial, README, architecture)",
+        name: "code",
+        description: "The code to generate tests for",
         required: true,
       },
       {
-        name: "project_name",
-        description: "Name of the project",
+        name: "test_framework",
+        description: "Preferred testing framework (optional, will auto-detect if not specified)",
         required: false,
       },
     ],
   },
   {
-    name: "test_case",
-    description: "Create a test case template",
+    name: "document_code",
+    description: "Generate documentation for code (JSDoc, docstrings, etc.)",
     arguments: [
       {
-        name: "test_type",
-        description: "Type of test (unit, integration, e2e)",
+        name: "code",
+        description: "The code to document",
         required: true,
-      },
-      {
-        name: "framework",
-        description: "Testing framework (Jest, Mocha, PyTest, etc.)",
-        required: false,
-      },
-    ],
-  },
-  {
-    name: "refactoring_plan",
-    description: "Generate a refactoring plan template",
-    arguments: [
-      {
-        name: "refactoring_type",
-        description: "Type of refactoring (extract method, rename, simplify, etc.)",
-        required: true,
-      },
-      {
-        name: "scope",
-        description: "Scope of refactoring (function, class, module, system)",
-        required: false,
       },
     ],
   },
 ];
 
 // Prompt template generators
-function generateCodeReviewPrompt(language: string, focusAreas?: string): string {
-  const areas = focusAreas || "code quality, performance, security, and best practices";
-  return `Please review the following ${language} code with focus on ${areas}.
+function generateCodeReviewPrompt(code: string, focusAreas?: string): string {
+  const areas = focusAreas || "code quality, performance, security, best practices, and potential bugs";
+  return `Please review the following code with focus on ${areas}.
 
-Consider the following aspects:
-1. **Code Quality**: Is the code clean, readable, and maintainable?
-2. **Performance**: Are there any performance bottlenecks or inefficiencies?
-3. **Security**: Are there any security vulnerabilities or concerns?
-4. **Best Practices**: Does the code follow ${language} best practices and conventions?
-5. **Testing**: Is the code testable? Are there adequate tests?
-6. **Documentation**: Is the code well-documented?
-
-Please provide:
-- Summary of findings
-- Specific issues with line numbers (if applicable)
-- Suggestions for improvements
-- Severity rating for each issue (low/medium/high)
+Analyze the code and provide:
+1. **Overall Assessment**: Brief summary of code quality
+2. **Issues Found**: List specific issues with severity (critical/high/medium/low)
+3. **Security Concerns**: Any security vulnerabilities or risks
+4. **Performance**: Bottlenecks or inefficiencies
+5. **Best Practices**: Violations of language/framework conventions
+6. **Suggestions**: Specific improvements with code examples
 
 Code to review:
-[Paste your ${language} code here]`;
+
+\`\`\`
+${code}
+\`\`\`
+
+Please be specific and actionable in your feedback.`;
 }
 
-function generateBugReportPrompt(severity: string, component?: string): string {
-  const componentText = component ? ` in ${component}` : "";
-  return `# Bug Report${componentText}
+function generateExplainCodePrompt(code: string): string {
+  return `Please explain what the following code does and how it works.
 
-**Severity**: ${severity.toUpperCase()}
+Provide:
+1. **Purpose**: What this code is designed to do
+2. **How It Works**: Step-by-step explanation of the logic
+3. **Key Concepts**: Important patterns, algorithms, or techniques used
+4. **Inputs/Outputs**: What it takes in and what it returns
+5. **Potential Issues**: Any edge cases or limitations to be aware of
 
-## Description
-[Provide a clear and concise description of the bug]
+Code to explain:
 
-## Steps to Reproduce
-1. [First step]
-2. [Second step]
-3. [And so on...]
+\`\`\`
+${code}
+\`\`\`
 
-## Expected Behavior
-[Describe what you expected to happen]
-
-## Actual Behavior
-[Describe what actually happened]
-
-## Environment
-- OS: [e.g., Windows 10, macOS 13.0, Ubuntu 22.04]
-- Browser/Runtime: [e.g., Chrome 120, Node.js 20.0]
-- Version: [e.g., v1.2.3]
-
-## Additional Context
-[Add any other context about the problem here]
-
-## Screenshots/Logs
-[If applicable, add screenshots or error logs]
-
-## Possible Solution
-[Optional: suggest a fix or reason for the bug]`;
+Please explain in clear, simple language as if teaching someone learning this programming language.`;
 }
 
-function generateDocumentationPrompt(docType: string, projectName?: string): string {
-  const project = projectName || "Your Project";
+function generateFindBugsPrompt(code: string): string {
+  return `Please analyze the following code for potential bugs, errors, and edge cases.
 
-  switch (docType.toLowerCase()) {
-    case "api":
-      return `# ${project} API Documentation
+Look for:
+1. **Logic Errors**: Incorrect logic that could produce wrong results
+2. **Edge Cases**: Unhandled edge cases (null, undefined, empty arrays, etc.)
+3. **Type Issues**: Type mismatches or unsafe type operations
+4. **Runtime Errors**: Potential crashes or exceptions
+5. **Off-by-One Errors**: Loop boundary issues
+6. **Resource Leaks**: Memory leaks, unclosed connections, etc.
+7. **Concurrency Issues**: Race conditions, deadlocks (if applicable)
+8. **Security Vulnerabilities**: Injection risks, unsafe operations
 
-## Overview
-[Brief description of the API]
+Code to analyze:
 
-## Authentication
-[How to authenticate with the API]
-
-## Base URL
 \`\`\`
-https://api.example.com/v1
-\`\`\`
-
-## Endpoints
-
-### [Endpoint Name]
-\`\`\`
-[METHOD] /endpoint/path
+${code}
 \`\`\`
 
-**Description**: [What this endpoint does]
-
-**Parameters**:
-- \`param1\` (type, required/optional): Description
-- \`param2\` (type, required/optional): Description
-
-**Request Example**:
-\`\`\`json
-{
-  "param1": "value",
-  "param2": "value"
-}
-\`\`\`
-
-**Response Example**:
-\`\`\`json
-{
-  "result": "value",
-  "status": "success"
-}
-\`\`\`
-
-**Error Responses**:
-- \`400\`: Bad Request
-- \`401\`: Unauthorized
-- \`404\`: Not Found
-- \`500\`: Internal Server Error`;
-
-    case "readme":
-      return `# ${project}
-
-[Brief project description in one paragraph]
-
-## Features
-
-- Feature 1
-- Feature 2
-- Feature 3
-
-## Installation
-
-\`\`\`bash
-npm install ${project.toLowerCase().replace(/\s+/g, "-")}
-\`\`\`
-
-## Quick Start
-
-\`\`\`javascript
-// Example usage code
-\`\`\`
-
-## Documentation
-
-[Link to full documentation]
-
-## Examples
-
-### Example 1: [Description]
-\`\`\`javascript
-// Example code
-\`\`\`
-
-## API Reference
-
-[Link to API documentation or include brief reference]
-
-## Contributing
-
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
-
-## License
-
-[License type] - see [LICENSE](LICENSE) file for details
-
-## Support
-
-- Documentation: [Link]
-- Issues: [Link to issue tracker]
-- Discussions: [Link to discussions]`;
-
-    case "tutorial":
-      return `# ${project} Tutorial
-
-## Introduction
-[What this tutorial will teach and who it's for]
-
-## Prerequisites
-- Prerequisite 1
-- Prerequisite 2
-
-## Step 1: [First Step Title]
-[Explanation of the first step]
-
-\`\`\`code
-// Example code
-\`\`\`
-
-**Expected Output**:
-\`\`\`
-[What you should see]
-\`\`\`
-
-## Step 2: [Second Step Title]
-[Explanation of the second step]
-
-## Common Issues
-- **Issue**: Description
-  **Solution**: How to fix
-
-## Next Steps
-- What to learn next
-- Related tutorials
-
-## Conclusion
-[Summary of what was learned]`;
-
-    case "architecture":
-      return `# ${project} Architecture
-
-## Overview
-[High-level description of the system architecture]
-
-## System Components
-
-### Component 1
-**Purpose**: [What this component does]
-**Technologies**: [List of technologies used]
-**Responsibilities**:
-- Responsibility 1
-- Responsibility 2
-
-### Component 2
-[Similar structure as above]
-
-## Data Flow
-1. [Step 1 in data flow]
-2. [Step 2 in data flow]
-3. [And so on...]
-
-## Technology Stack
-- **Frontend**: [Technologies]
-- **Backend**: [Technologies]
-- **Database**: [Technologies]
-- **Infrastructure**: [Technologies]
-
-## Design Patterns
-- [Pattern 1]: [Why and where it's used]
-- [Pattern 2]: [Why and where it's used]
-
-## Security Considerations
-- [Security measure 1]
-- [Security measure 2]
-
-## Scalability
-[How the system scales]
-
-## Deployment
-[How the system is deployed]
-
-## Monitoring and Logging
-[Monitoring and logging strategy]`;
-
-    default:
-      return `# ${project} Documentation
-
-[Start your ${docType} documentation here]`;
-  }
+For each issue found, provide:
+- **Line/Location**: Where the issue occurs
+- **Severity**: Critical/High/Medium/Low
+- **Description**: What the bug is
+- **How to Fix**: Specific solution with code example`;
 }
 
-function generateTestCasePrompt(testType: string, framework?: string): string {
-  const frameworkText = framework ? ` using ${framework}` : "";
-  return `# ${testType.toUpperCase()} Test Case${frameworkText}
+function generateImproveCodePrompt(code: string, goals?: string): string {
+  const optimization = goals || "overall code quality, readability, performance, and maintainability";
+  return `Please suggest improvements to the following code, optimizing for ${optimization}.
 
-## Test Description
-[Describe what this test validates]
+Provide:
+1. **Improved Code**: Complete rewrite with improvements
+2. **Changes Made**: List of specific improvements
+3. **Benefits**: How each change improves the code
+4. **Performance Impact**: Any performance gains (if applicable)
+5. **Tradeoffs**: Any tradeoffs or considerations
 
-## Test Setup
-\`\`\`javascript
-// Setup code (e.g., creating test data, mocking dependencies)
+Original code:
+
+\`\`\`
+${code}
 \`\`\`
 
-## Test Execution
-\`\`\`javascript
-describe('[Component/Feature Name]', () => {
-  beforeEach(() => {
-    // Setup before each test
-  });
-
-  afterEach(() => {
-    // Cleanup after each test
-  });
-
-  it('should [expected behavior]', async () => {
-    // Arrange: Set up test conditions
-    const input = {};
-
-    // Act: Execute the code being tested
-    const result = await functionUnderTest(input);
-
-    // Assert: Verify the results
-    expect(result).toEqual(expectedOutput);
-  });
-
-  it('should handle [edge case or error condition]', async () => {
-    // Test edge cases
-  });
-});
-\`\`\`
-
-## Expected Results
-- [Expected result 1]
-- [Expected result 2]
-
-## Edge Cases to Test
-- [Edge case 1]
-- [Edge case 2]
-
-## Test Data
-\`\`\`javascript
-// Sample test data
-\`\`\`
-
-## Notes
-[Any additional information about this test]`;
+Focus on practical, meaningful improvements while maintaining correctness.`;
 }
 
-function generateRefactoringPlanPrompt(refactoringType: string, scope?: string): string {
-  const scopeText = scope ? ` (Scope: ${scope})` : "";
-  return `# Refactoring Plan: ${refactoringType}${scopeText}
+function generateTestsPrompt(code: string, testFramework?: string): string {
+  const framework = testFramework ? ` using ${testFramework}` : "";
+  return `Please generate comprehensive test cases for the following code${framework}.
 
-## Objective
-[Clearly state the goal of this refactoring]
+Include:
+1. **Unit Tests**: Test each function/method in isolation
+2. **Happy Path Tests**: Normal, expected usage
+3. **Edge Cases**: Boundary conditions, empty inputs, null/undefined
+4. **Error Cases**: Invalid inputs, error handling
+5. **Test Setup/Teardown**: Any needed setup or cleanup
+6. **Mock Data**: Sample test data if needed
 
-## Current State
-[Describe the current implementation and what problems it has]
+Code to test:
 
-\`\`\`javascript
-// Current code example
+\`\`\`
+${code}
 \`\`\`
 
-**Issues**:
-- Issue 1
-- Issue 2
-- Issue 3
+Generate complete, runnable test code with good coverage. Include comments explaining what each test validates.`;
+}
 
-## Proposed Changes
-[Describe the refactoring changes in detail]
+function generateDocumentCodePrompt(code: string): string {
+  return `Please generate comprehensive documentation for the following code.
 
-\`\`\`javascript
-// Proposed code example
+Include:
+1. **Function/Class Documentation**: JSDoc, docstrings, or equivalent
+2. **Parameter Descriptions**: What each parameter does, types, constraints
+3. **Return Value**: What is returned, type, possible values
+4. **Examples**: Usage examples showing how to use the code
+5. **Notes**: Important caveats, side effects, or considerations
+6. **Exceptions**: What errors can be thrown and when
+
+Code to document:
+
+\`\`\`
+${code}
 \`\`\`
 
-**Benefits**:
-- Benefit 1
-- Benefit 2
-- Benefit 3
-
-## Impact Analysis
-- **Performance**: [Impact on performance]
-- **Breaking Changes**: [Any breaking changes]
-- **Dependencies**: [Affected dependencies]
-- **Tests**: [Tests that need updating]
-
-## Implementation Steps
-1. [Step 1]
-2. [Step 2]
-3. [Step 3]
-4. Run tests to verify no regressions
-5. Update documentation
-
-## Rollback Plan
-[How to revert if issues arise]
-
-## Testing Strategy
-- [ ] Unit tests updated
-- [ ] Integration tests updated
-- [ ] Manual testing completed
-- [ ] Performance testing (if applicable)
-
-## Timeline
-- **Estimated Effort**: [Time estimate]
-- **Dependencies**: [Prerequisites or blockers]
-
-## Risks and Mitigation
-- **Risk 1**: [Description] → **Mitigation**: [How to address]
-- **Risk 2**: [Description] → **Mitigation**: [How to address]`;
+Use the appropriate documentation format for the language (JSDoc for JavaScript/TypeScript, docstrings for Python, etc.). Make the documentation clear and helpful for other developers.`;
 }
 
 // Create and configure the MCP server
@@ -499,36 +257,40 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
   switch (name) {
     case "code_review":
       promptText = generateCodeReviewPrompt(
-        args?.language as string,
+        args?.code as string,
         args?.focus_areas as string | undefined
       );
       break;
 
-    case "bug_report":
-      promptText = generateBugReportPrompt(
-        args?.severity as string,
-        args?.component as string | undefined
+    case "explain_code":
+      promptText = generateExplainCodePrompt(
+        args?.code as string
       );
       break;
 
-    case "documentation":
-      promptText = generateDocumentationPrompt(
-        args?.doc_type as string,
-        args?.project_name as string | undefined
+    case "find_bugs":
+      promptText = generateFindBugsPrompt(
+        args?.code as string
       );
       break;
 
-    case "test_case":
-      promptText = generateTestCasePrompt(
-        args?.test_type as string,
-        args?.framework as string | undefined
+    case "improve_code":
+      promptText = generateImproveCodePrompt(
+        args?.code as string,
+        args?.goals as string | undefined
       );
       break;
 
-    case "refactoring_plan":
-      promptText = generateRefactoringPlanPrompt(
-        args?.refactoring_type as string,
-        args?.scope as string | undefined
+    case "generate_tests":
+      promptText = generateTestsPrompt(
+        args?.code as string,
+        args?.test_framework as string | undefined
+      );
+      break;
+
+    case "document_code":
+      promptText = generateDocumentCodePrompt(
+        args?.code as string
       );
       break;
 

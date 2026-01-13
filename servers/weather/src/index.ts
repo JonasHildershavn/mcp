@@ -14,12 +14,22 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 /**
- * Weather MCP Server
+ * Weather MCP Server - Educational Demo with Real API Integration
  *
  * This server demonstrates ALL MCP capabilities:
  * - TOOLS: Functions to fetch weather data
  * - RESOURCES: Weather data as accessible resources
  * - PROMPTS: Templates for weather analysis
+ *
+ * Educational Features:
+ * - Shows how to integrate external APIs (OpenWeather)
+ * - Demonstrates graceful fallback to mock data
+ * - Illustrates real-world MCP server design patterns
+ * - Teaches API key management and configuration
+ *
+ * Setup:
+ * - Set OPENWEATHER_API_KEY environment variable for real data
+ * - Falls back to educational mock data if no key is provided
  */
 
 interface WeatherData {
@@ -32,14 +42,86 @@ interface WeatherData {
   conditions: string;
   forecast: string[];
   lastUpdated: string;
+  source: 'api' | 'mock';  // Track data source for educational purposes
 }
 
-// Mock weather data storage
+// Configuration
+const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY;
+const USE_REAL_API = !!OPENWEATHER_API_KEY && OPENWEATHER_API_KEY !== 'your_api_key_here';
+
+// Weather data cache
 const weatherCache = new Map<string, WeatherData>();
 
-// Initialize sample weather data
-function initializeWeatherData() {
-  const cities: WeatherData[] = [
+// Log startup configuration
+if (USE_REAL_API) {
+  console.error('✓ OpenWeather API configured - using real weather data');
+} else {
+  console.error('ℹ No API key found - using educational mock data');
+  console.error('  Set OPENWEATHER_API_KEY environment variable to use real weather data');
+}
+
+/**
+ * Fetch weather data from OpenWeather API
+ * Educational: Shows real-world API integration
+ */
+async function fetchRealWeather(city: string): Promise<WeatherData | null> {
+  if (!USE_REAL_API) return null;
+
+  try {
+    // Fetch current weather
+    const currentUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${OPENWEATHER_API_KEY}&units=metric`;
+    const currentResponse = await fetch(currentUrl);
+
+    if (!currentResponse.ok) {
+      return null;
+    }
+
+    const currentData = await currentResponse.json();
+
+    // Fetch forecast
+    const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&appid=${OPENWEATHER_API_KEY}&units=metric`;
+    const forecastResponse = await fetch(forecastUrl);
+
+    let forecast: string[] = [];
+    if (forecastResponse.ok) {
+      const forecastData = await forecastResponse.json();
+      // Get one forecast per day
+      forecast = forecastData.list
+        .filter((_: any, index: number) => index % 8 === 0)
+        .slice(0, 5)
+        .map((item: any) => item.weather[0].main);
+    }
+
+    const weatherData: WeatherData = {
+      city: currentData.name,
+      country: currentData.sys.country,
+      temperature: Math.round(currentData.main.temp),
+      feelsLike: Math.round(currentData.main.feels_like),
+      humidity: currentData.main.humidity,
+      windSpeed: Math.round(currentData.wind.speed * 3.6), // m/s to km/h
+      conditions: currentData.weather[0].main,
+      forecast: forecast.length > 0 ? forecast : ["Unknown", "Unknown", "Unknown", "Unknown", "Unknown"],
+      lastUpdated: new Date().toISOString(),
+      source: 'api'
+    };
+
+    // Cache for 10 minutes
+    weatherCache.set(city.toLowerCase(), weatherData);
+    setTimeout(() => weatherCache.delete(city.toLowerCase()), 10 * 60 * 1000);
+
+    return weatherData;
+  } catch (error) {
+    console.error(`Failed to fetch weather for ${city}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Initialize sample weather data for educational purposes
+ * Used when no API key is configured
+ */
+function initializeMockWeatherData() {
+  const cities: Omit<WeatherData, 'source'>[] = [
     {
       city: "San Francisco",
       country: "USA",
@@ -87,11 +169,37 @@ function initializeWeatherData() {
   ];
 
   cities.forEach((data) => {
-    weatherCache.set(data.city.toLowerCase(), data);
+    weatherCache.set(data.city.toLowerCase(), { ...data, source: 'mock' });
   });
 }
 
-initializeWeatherData();
+// Initialize mock data
+initializeMockWeatherData();
+
+/**
+ * Get weather data with intelligent fallback
+ * Educational: Demonstrates resilient service design
+ */
+async function getWeatherData(city: string): Promise<WeatherData | null> {
+  const cityLower = city.toLowerCase();
+
+  // Try cache first
+  const cached = weatherCache.get(cityLower);
+  if (cached && cached.source === 'api') {
+    return cached;
+  }
+
+  // Try real API if configured
+  if (USE_REAL_API) {
+    const realData = await fetchRealWeather(city);
+    if (realData) {
+      return realData;
+    }
+  }
+
+  // Fall back to cache (mock data)
+  return weatherCache.get(cityLower) || null;
+}
 
 // Define tools
 const TOOLS: Tool[] = [
@@ -233,14 +341,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     switch (name) {
       case "get_current_weather": {
-        const city = (args.city as string).toLowerCase();
-        const weather = weatherCache.get(city);
+        const city = args.city as string;
+        const weather = await getWeatherData(city);
 
         if (!weather) {
           throw new Error(
-            `Weather data not available for ${args.city}. Available cities: ${Array.from(
-              weatherCache.keys()
-            ).join(", ")}`
+            `Weather data not available for ${city}. ` +
+            (USE_REAL_API
+              ? `City not found. Try cities like: London, Tokyo, New York, Paris`
+              : `Available mock cities: ${Array.from(weatherCache.keys()).join(", ")}`)
           );
         }
 
@@ -258,6 +367,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                   windSpeed: `${weather.windSpeed} km/h`,
                   conditions: weather.conditions,
                   lastUpdated: weather.lastUpdated,
+                  dataSource: weather.source === 'api' ? 'Real-time API data' : 'Educational mock data'
                 },
                 null,
                 2
@@ -268,11 +378,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_forecast": {
-        const city = (args.city as string).toLowerCase();
-        const weather = weatherCache.get(city);
+        const city = args.city as string;
+        const weather = await getWeatherData(city);
 
         if (!weather) {
-          throw new Error(`Weather data not available for ${args.city}`);
+          throw new Error(`Weather data not available for ${city}`);
         }
 
         const forecastWithDays = weather.forecast.map((conditions, index) => ({
@@ -289,6 +399,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                   city: weather.city,
                   country: weather.country,
                   forecast: forecastWithDays,
+                  dataSource: weather.source === 'api' ? 'Real-time API data' : 'Educational mock data'
                 },
                 null,
                 2
@@ -299,11 +410,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "compare_weather": {
-        const city1 = (args.city1 as string).toLowerCase();
-        const city2 = (args.city2 as string).toLowerCase();
+        const city1 = args.city1 as string;
+        const city2 = args.city2 as string;
 
-        const weather1 = weatherCache.get(city1);
-        const weather2 = weatherCache.get(city2);
+        const weather1 = await getWeatherData(city1);
+        const weather2 = await getWeatherData(city2);
 
         if (!weather1 || !weather2) {
           throw new Error("Weather data not available for one or both cities");
@@ -334,6 +445,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     weather1.temperature > weather2.temperature
                       ? weather1.city
                       : weather2.city,
+                  dataSource: weather1.source === 'api' || weather2.source === 'api'
+                    ? 'Includes real-time API data'
+                    : 'Educational mock data'
                 },
                 null,
                 2
@@ -374,12 +488,15 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
   switch (name) {
     case "weather_analysis": {
       const city = args?.city as string;
-      const cityLower = city.toLowerCase();
-      const weather = weatherCache.get(cityLower);
+      const weather = await getWeatherData(city);
 
       if (!weather) {
         throw new Error(`Weather data not available for ${city}`);
       }
+
+      const dataSourceNote = weather.source === 'api'
+        ? '(This is real-time weather data from OpenWeather API)'
+        : '(This is educational mock data - configure OPENWEATHER_API_KEY for real data)';
 
       promptText = `Analyze the current weather conditions in ${weather.city}, ${weather.country}:
 
@@ -390,6 +507,8 @@ Current Conditions:
 - Wind Speed: ${weather.windSpeed} km/h
 
 5-Day Forecast: ${weather.forecast.join(", ")}
+
+Data Source: ${dataSourceNote}
 
 Please provide:
 1. Overall weather assessment
@@ -403,8 +522,7 @@ Please provide:
     case "travel_recommendation": {
       const destination = args?.destination as string;
       const activity = (args?.activity as string) || "general sightseeing";
-      const destLower = destination.toLowerCase();
-      const weather = weatherCache.get(destLower);
+      const weather = await getWeatherData(destination);
 
       if (!weather) {
         promptText = `Generate travel recommendations for ${destination} with a focus on ${activity}.
@@ -418,9 +536,13 @@ Please provide:
 
 Note: Current weather data not available. Base recommendations on general knowledge.`;
       } else {
+        const dataSourceNote = weather.source === 'api'
+          ? '(Real-time data from OpenWeather API)'
+          : '(Educational mock data)';
+
         promptText = `Generate travel recommendations for ${weather.city}, ${weather.country} with a focus on ${activity}.
 
-Current Weather:
+Current Weather ${dataSourceNote}:
 - Temperature: ${weather.temperature}°C
 - Conditions: ${weather.conditions}
 - Humidity: ${weather.humidity}%
