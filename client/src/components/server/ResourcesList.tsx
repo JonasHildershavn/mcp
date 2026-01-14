@@ -33,10 +33,12 @@ export function ResourcesList({ resources, serverName }: ResourcesListProps) {
 
       // Parse content
       let content = result.contents[0]?.text;
-      try {
-        content = JSON.parse(content);
-      } catch {
-        // Keep as string if not JSON
+      if (content) {
+        try {
+          content = JSON.parse(content);
+        } catch {
+          // Keep as string if not JSON
+        }
       }
 
       setResourceContent(prev => ({
